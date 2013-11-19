@@ -2,6 +2,7 @@
 #
 # This would be what Varnish does.
 #
+import struct
 import socket
 
 # no empty ending lines.
@@ -24,13 +25,12 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(('localhost', 15696))
 
+    headercontent = (len(req[0]), len(req[1]), len(req[2]))
+    header = "VPOL" + struct.pack(">HHL", *headercontent)
+    sock.send(header)
     sock.send(req[0])
-    sock.send(DELIM)
     sock.send(req[1])
-    sock.send(DELIM)
     sock.send(req[2])
-    sock.send(DELIM)
-    sock.send(DELIM)
 
     response = sock.recv(1500)
     if len(response) == 0:
