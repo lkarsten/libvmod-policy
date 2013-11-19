@@ -1,28 +1,43 @@
 ============
-vmod_example
+vmod_policy
 ============
 
 ----------------------
-Varnish Example Module
+Varnish policy daemons
 ----------------------
 
-:Author: Martin Blix Grydeland
-:Date: 2011-05-26
+:Author: Lasse Karstensen
+:Date: 2013-11-18
 :Version: 1.0
 :Manual section: 3
 
 SYNOPSIS
 ========
 
-import example;
+import policy;
 
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod
-for Varnish 3.0 and later.
+The policy vmod allows request policy handling to be done in a separate
+process.
 
-Implements the traditional Hello World as a vmod.
+The goal of this is to simplify the development of advanced decision
+policies for Varnish.
+
+A policy daemon will be supplied with:
+* all request headers
+* varnishd metainfo
+* (in 4.0: request body)
+
+Example can be:
+* DNS blacklists for expensive POST requests.
+* Request rate limiting (number, size, etc)
+* Client profiling/tracking
+
+See the policy-protocol.txt for a description of the line protocol
+between libvmod-policy and the policy daemon.
+
 
 FUNCTIONS
 =========

@@ -25,6 +25,8 @@ class policyTCPHandler(SocketServer.StreamRequestHandler):
                 data[section].append(line)
 
         pprint(data)
+        # let the policy daemon vouch for the client for a while. ttl, ip.
+        self.request.send("policy-whitelist-client: 3600,1.2.3.4\n")
         self.request.send("OK\n")
         print "Request handling finished"
 
