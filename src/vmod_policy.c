@@ -28,7 +28,7 @@ vmod_check(struct sess *sp, const char *destip, const char *port) {
 	char *p, *q;
 	int u, v;
 	char hdrname[1000];
-	int i, hdrnamelen, sock;
+	int i, hdrnamelen, sock, s;
 	struct vsb *meta, *headers;
 	struct addrinfo hints, *rp;
 
@@ -51,38 +51,61 @@ vmod_check(struct sess *sp, const char *destip, const char *port) {
 			*/
 		VSB_bcat(headers, hdrname, hdrnamelen);
 	}
+	VSB_trim(meta);
 	VSB_finish(meta);
+	VSB_trim(headers);
 	VSB_finish(headers);
 //	VSL(SLT_Debug, 0, "vsb is: %s", VSB_data(fp));
 
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (!sock) { return EXIT_ERR; }
-
 	// please, just fix this sockaddr mess for me.
-
 	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_NUMERICHOST; // no DNS resolving, must be an IP.
-	int s = getaddrinfo(destip, port, &hints, &rp);
-	if (!s) { return EXIT_ERR; }
+
+	s = getaddrinfo(destip, port, &hints, &rp);
+	if (s != 0) {
+		VSL(SLT_VCL_Log, 0, "getaddrinfo(): %i %s", s, gai_strerror(s));
+		return EXIT_ERR;
+	}
 	AN(rp);
 
+	sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	if (sock == -1) {
+		VSL(SLT_VCL_Log, 0, "socket(): %i %s", sock, strerror(sock));
+		return EXIT_ERR;
+	}
+
 	s = connect(sock, rp->ai_addr, rp->ai_addrlen);
-	if (!s) { return EXIT_ERR; }
+	if (s == -1) {
+		VSL(SLT_VCL_Log, 0, "connect(): %s", strerror(errno));
+		return EXIT_ERR;
+	}
+	freeaddrinfo(rp);
 
 	int n = 0;
 	char msg[1024] = "\0";
-	size_t len = sprintf(msg, "VPOL%i%i%l", &n, &n, &n);
-	send(sock, &msg, len, 0);
+	size_t len = sprintf(msg, "VPOL%i%i%l", htonl(13), 13, 13); // VSB_len(meta), VSB_len(headers), 0);
+//	htonl
+	send(sock, msg, len, 0);
 	//VSB_data(meta));
-	send(sock, VSB_data(meta), VSB_len(meta), 0);
-	send(sock, VSB_data(headers), VSB_len(meta), 0);
+	send(sock, VSB_data(meta), 10, 0); // / VSB_len(meta), 0);
+	send(sock, VSB_data(headers), 10, 0); // VSB_len(headers), 0);
 
-	char res[] = "NO";
-	n = recv(sock, &res, 2, 0);
-	if (!n) { return EXIT_ERR; }
+	int reslen = 3;
+	char buf[reslen];
+	s = recv(sock, &buf, reslen, 0);
+	if (s == -1) {
+		VSL(SLT_VCL_Log, 0, "recv(): %s", strerror(s));
+		return EXIT_ERR;
+	}
 
-	//if (strncmp(&res, "OK", 2) == 0) {
-//		return EXIT_OK;
-//	} else return EXIT_NO;
-	return EXIT_ERR;
+	int returncode;
+	buf[3] = '\0';
+	returncode = atoi(buf);
+	if (returncode == 200) {
+		return EXIT_OK;
+	} else return EXIT_NO;
+
+	return -10000; // EXIT_ERR;
 }

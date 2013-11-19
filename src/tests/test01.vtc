@@ -1,4 +1,4 @@
-varnishtest "Test example vmod"
+varnishtest "Test policy vmod"
 
 server s1 {
        rxreq
@@ -6,17 +6,19 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import example from "${vmod_topbuild}/src/.libs/libvmod_example.so";
-
+	import policy from "${vmod_topbuild}/src/.libs/libvmod_policy.so";
+	import std;
 	sub vcl_deliver {
-		set resp.http.hello = example.hello("World");
+		set resp.http.hello = policy.check("127.0.0.1", "15696");
+		# std.log("res is: " + req.http.hello);
 	}
 } -start
 
 client c1 {
 	txreq -url "/"
 	rxresp
-	expect resp.http.hello == "Hello, World"
+	expect resp.http.hello == "1"
+ # NO"
 }
 
 client c1 -run
