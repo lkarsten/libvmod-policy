@@ -1,0 +1,40 @@
+VPOL protocol
+=============
+
+This is a request-response protocol.
+
+A client sends a request message, and receives a response message back.
+If the server does not respond, it must be safe to retry the request.
+
+The first 12 bytes of a request must be a VPOL header, consisting of:
+
+	char[4] "VPOL"
+	uint32 meta_length
+	uint32 header_length
+	uint64 body_length
+
+this header is followed by meta_length + header_length + body_length octets
+of data.
+
+(what about gzip? very important if we do this in vcl_backend_response as well)
+
+Request message
+---------------
+
+A request message has three parts:
+
+1) metadata; key: value.
+2) headers
+3) body
+
+
+Response message
+----------------
+
+
+Currently defined as a two-octet string:
+
+	"OK" (permit this)
+	"NO" (do not permit this)
+
+To be expanded upon.
