@@ -35,28 +35,30 @@ Example can be:
 * Request rate limiting (number, size, etc)
 * Client profiling/tracking
 
-See the policy-protocol.txt for a description of the line protocol
-between libvmod-policy and the policy daemon.
+See the vpol-protocol.txt for a description of the line protocol between
+libvmod-policy and the policy daemon.
 
 
 FUNCTIONS
 =========
 
-hello
+check
 -----
 
 Prototype
         ::
 
-                hello(STRING S)
+                check(STRING S)
 Return value
 	STRING
 Description
-	Returns "Hello, " prepended to S
+	Checks with policy server in S, and returns the string provided by it.
 Example
         ::
 
-                set resp.http.hello = example.hello("World");
+                if (policy.check("127.0.0.1:15696") == "NO") {
+                    error 403 "Forbidden";
+                }
 
 INSTALLATION
 ============
@@ -111,4 +113,4 @@ COPYRIGHT
 This document is licensed under the same license as the
 libvmod-example project. See LICENSE for details.
 
-* Copyright (c) 2011 Varnish Software
+* Copyright (c) 2013 Varnish Software
