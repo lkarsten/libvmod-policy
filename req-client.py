@@ -26,7 +26,10 @@ if __name__ == "__main__":
     sock.connect(('localhost', 15696))
 
     headercontent = (len(req[0]), len(req[1]), len(req[2]))
-    header = "VPOL" + struct.pack(">HHL", *headercontent)
+    # print headercontent
+
+    header = "VPOL" + struct.pack("!III", *headercontent)
+    # print len(header)
     sock.send(header)
     sock.send(req[0])
     sock.send(req[1])

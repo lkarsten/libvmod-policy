@@ -22,7 +22,6 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 }
 
 
-
 int
 vmod_check(struct sess *sp, const char *destip, const char *port) {
 	char *p, *q;
@@ -32,11 +31,17 @@ vmod_check(struct sess *sp, const char *destip, const char *port) {
 	struct vsb *meta, *headers;
 	struct addrinfo hints, *rp;
 
+	ssize_t len;
+	char vpolhdr[] = "VPOL";
+	char response[] = "000\0";
+	short responsecode;
+
 	AN(destip);
 	AN(port);
 
 	meta = VSB_new_auto();
-	VSB_cat(meta, "x-foo: bar");
+	char foo[] = "x-foo: bar";
+	VSB_cat(meta, &foo);
 
 	headers = VSB_new_auto();
 	for (u = HTTP_HDR_FIRST; u < sp->http->nhd; u++) {
@@ -46,16 +51,14 @@ vmod_check(struct sess *sp, const char *destip, const char *port) {
 		// TODO: fix this buffering
 		hdrnamelen = q - sp->http->hd[u].b;
 		strncpy(hdrname, sp->http->hd[u].b, hdrnamelen);
-		/*if (u > HTTP_HDR_FIRST)
-			VSB_cat(fp, "__");
-			*/
+		if (u > HTTP_HDR_FIRST)
+			VSB_cat(headers, "__");
 		VSB_bcat(headers, hdrname, hdrnamelen);
 	}
-	VSB_trim(meta);
 	VSB_finish(meta);
-	VSB_trim(headers);
 	VSB_finish(headers);
-//	VSL(SLT_Debug, 0, "vsb is: %s", VSB_data(fp));
+
+	VSL(SLT_Debug, 0, "headers: (%i) %s ", VSB_len(headers), VSB_data(headers));
 
 	// please, just fix this sockaddr mess for me.
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -83,29 +86,35 @@ vmod_check(struct sess *sp, const char *destip, const char *port) {
 	}
 	freeaddrinfo(rp);
 
-	int n = 0;
-	char msg[1024] = "\0";
-	size_t len = sprintf(msg, "VPOL%i%i%l", htonl(13), 13, 13); // VSB_len(meta), VSB_len(headers), 0);
-//	htonl
-	send(sock, msg, len, 0);
-	//VSB_data(meta));
-	send(sock, VSB_data(meta), 10, 0); // / VSB_len(meta), 0);
-	send(sock, VSB_data(headers), 10, 0); // VSB_len(headers), 0);
+	// format and send the VPOL header.
+	send(sock, &vpolhdr, sizeof(vpolhdr)-1, 0);
 
-	int reslen = 3;
-	char buf[reslen];
-	s = recv(sock, &buf, reslen, 0);
+	// VSL(SLT_VCL_Log, 0, "meta len is: %i", VSB_len(meta));
+	len = htonl(VSB_len(meta));
+	send(sock, &len, sizeof(uint32_t), 0);
+
+	len = htonl(VSB_len(headers));
+	send(sock, &len, sizeof(uint32_t), 0);
+
+	len = 0; // no body
+	send(sock, &len, sizeof(uint32_t), 0);
+
+	// send the content.
+	send(sock, VSB_data(meta), VSB_len(meta), 0);
+	send(sock, VSB_data(headers), VSB_len(headers), 0);
+
+	// read and parse the response.
+	s = recv(sock, &response, sizeof(response), 0);
 	if (s == -1) {
 		VSL(SLT_VCL_Log, 0, "recv(): %s", strerror(s));
 		return EXIT_ERR;
 	}
 
-	int returncode;
-	buf[3] = '\0';
-	returncode = atoi(buf);
-	if (returncode == 200) {
+	responsecode = atoi(&response);
+	// VSL(SLT_VCL_Log, 0, "responsecode: %i", responsecode);
+	if (responsecode == 200) {
 		return EXIT_OK;
-	} else return EXIT_NO;
+	}
 
-	return -10000; // EXIT_ERR;
+	return EXIT_NO;
 }
