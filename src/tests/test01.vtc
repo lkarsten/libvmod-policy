@@ -9,16 +9,16 @@ varnish v1 -vcl+backend {
 	import policy from "${vmod_topbuild}/src/.libs/libvmod_policy.so";
 	import std;
 	sub vcl_deliver {
-		set resp.http.hello = policy.check("127.0.0.1", "15696");
-		# std.log("res is: " + req.http.hello);
+		set resp.http.x-ok = policy.check("/tmp/foo.sock");
 	}
 } -start
 
 client c1 {
-	txreq -url "/"
+	txreq -url "/" -hdr "User-Agent: varnishtest" \
+		-hdr "Accept-Language: en" \
+		-hdr "Host: localhost"
 	rxresp
-	expect resp.http.hello == "0"
- # NO"
+	expect resp.http.x-ok == "0"
 }
 
 client c1 -run

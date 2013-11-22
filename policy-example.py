@@ -3,12 +3,14 @@
 import socket
 import struct
 import SocketServer
+from os.path import exists
+from os import unlink
 from pprint import pprint
 
 class ClientError(Exception):
     pass
 
-class policyTCPHandler(SocketServer.StreamRequestHandler):
+class policyHandler(SocketServer.StreamRequestHandler):
     #timeout = 0.5
     timeout = 2
     def handle(self):
@@ -67,9 +69,11 @@ class policyTCPHandler(SocketServer.StreamRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 15696
-    SocketServer.TCPServer.allow_reuse_address = True
-    server = SocketServer.TCPServer((HOST, PORT), policyTCPHandler)
+    socketfile = "/tmp/foo.sock";
+    if exists(socketfile):
+        unlink(socketfile)
+    server = SocketServer.UnixStreamServer(socketfile, policyHandler)
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:

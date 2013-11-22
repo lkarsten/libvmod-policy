@@ -2,7 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/socket.h>
-#include <netdb.h>
+#include <sys/un.h>
+#include <arpa/inet.h>
 
 #include "vrt.h"
 #include "vsb.h"
@@ -23,69 +24,56 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 
 
 int
-vmod_check(struct sess *sp, const char *destip, const char *port) {
+vmod_check(struct sess *sp, const char *socketfile) {
 	char *p, *q;
 	int u, v;
 	char hdrname[1000];
 	int i, hdrnamelen, sock, s;
 	struct vsb *meta, *headers;
-	struct addrinfo hints, *rp;
-
+	struct sockaddr_un serveraddr;
+#define SERVERADDR_MAX 254
 	ssize_t len;
 	char vpolhdr[] = "VPOL";
 	char response[] = "000\0";
 	short responsecode;
 
-	AN(destip);
-	AN(port);
+	AN(socketfile);
 
-	meta = VSB_new_auto();
-	char foo[] = "x-foo: bar";
-	VSB_cat(meta, &foo);
+	memset(&serveraddr, 0, sizeof(struct sockaddr_un));
+	serveraddr.sun_family = AF_UNIX;
+	strncpy(serveraddr.sun_path, socketfile, strlen(socketfile));
 
-	headers = VSB_new_auto();
-	for (u = HTTP_HDR_FIRST; u < sp->http->nhd; u++) {
-		q = index(sp->http->hd[u].b, ':');
-		if (q == NULL) continue;
-
-		// TODO: fix this buffering
-		hdrnamelen = q - sp->http->hd[u].b;
-		strncpy(hdrname, sp->http->hd[u].b, hdrnamelen);
-		if (u > HTTP_HDR_FIRST)
-			VSB_cat(headers, "__");
-		VSB_bcat(headers, hdrname, hdrnamelen);
-	}
-	VSB_finish(meta);
-	VSB_finish(headers);
-
-	VSL(SLT_Debug, 0, "headers: (%i) %s ", VSB_len(headers), VSB_data(headers));
-
-	// please, just fix this sockaddr mess for me.
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_NUMERICHOST; // no DNS resolving, must be an IP.
-
-	s = getaddrinfo(destip, port, &hints, &rp);
-	if (s != 0) {
-		VSL(SLT_VCL_Log, 0, "getaddrinfo(): %i %s", s, gai_strerror(s));
-		return EXIT_ERR;
-	}
-	AN(rp);
-
-	sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock == -1) {
 		VSL(SLT_VCL_Log, 0, "socket(): %i %s", sock, strerror(sock));
 		return EXIT_ERR;
 	}
 
-	s = connect(sock, rp->ai_addr, rp->ai_addrlen);
-	if (s == -1) {
-		VSL(SLT_VCL_Log, 0, "connect(): %s", strerror(errno));
+	s = connect(sock, (struct sockaddr *)&serveraddr, sizeof(struct sockaddr_un));
+	if (s != 0) {
+		VSL(SLT_VCL_Log, 0, "connect(): (%i) %s", errno, strerror(errno));
 		return EXIT_ERR;
 	}
-	freeaddrinfo(rp);
+	AN(sock);
 
+	meta = VSB_new_auto();
+	VSB_printf(meta, "xid: %i\n", sp->xid);
+	VSB_printf(meta, "vcl_method: %i\n", sp->cur_method);
+	VSB_printf(meta, "client_ip: %s\n", sp->addr);
+	VSB_printf(meta, "t_open: %i\n", sp->t_open);
+	VSB_printf(meta, "http_method: %s\n", sp->http->hd[0].b);
+	VSB_printf(meta, "URL: %s\n", sp->http->hd[1].b);
+	VSB_printf(meta, "proto: %s\n", sp->http->hd[2].b);
+	VSB_finish(meta);
+
+	headers = VSB_new_auto();
+	for (u = HTTP_HDR_FIRST; u < sp->http->nhd; u++) {
+		VSB_bcat(headers, sp->http->hd[u].b, Tlen(sp->http->hd[u]));
+		VSB_cat(headers, "\n");
+	}
+	VSB_finish(headers);
+
+	// VSL(SLT_Debug, 0, "headers: (%i) %s ", VSB_len(headers), VSB_data(headers));
 	// format and send the VPOL header.
 	send(sock, &vpolhdr, sizeof(vpolhdr)-1, 0);
 
@@ -107,14 +95,15 @@ vmod_check(struct sess *sp, const char *destip, const char *port) {
 	s = recv(sock, &response, sizeof(response), 0);
 	if (s == -1) {
 		VSL(SLT_VCL_Log, 0, "recv(): %s", strerror(s));
+		close(sock);
 		return EXIT_ERR;
 	}
+	close(sock);
 
-	responsecode = atoi(&response);
-	// VSL(SLT_VCL_Log, 0, "responsecode: %i", responsecode);
+	responsecode = atoi((const char *)&response);
 	if (responsecode == 200) {
 		return EXIT_OK;
 	}
-
+	// VSL(SLT_VCL_Log, 0, "responsecode: %i", responsecode);
 	return EXIT_NO;
 }

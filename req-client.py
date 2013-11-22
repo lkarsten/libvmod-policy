@@ -22,8 +22,8 @@ Cookie: __utma=253898641.2098534993.1348749499.1374491627.1374580772.70; __utmz=
 DELIM="\n"
 
 if __name__ == "__main__":
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('localhost', 15696))
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect("/tmp/foo.sock")
 
     headercontent = (len(req[0]), len(req[1]), len(req[2]))
     # print headercontent
