@@ -25,17 +25,19 @@ process.
 The goal of this is to simplify the development of advanced decision
 policies for Varnish.
 
-A policy daemon will be supplied with::
+A policy daemon will be supplied with:
 
 * Metainfo; client IP/port, URI, etc.
 * Request headers
 * Request body (in 4.0, empty in 3.0)
 
-Example usage can be::
+
+Example usage can be:
 
 * Request rate limiting (number, size, etc)
 * DNS blacklists for expensive POST requests.
 * Client profiling/tracking
+
 
 See the vpol-protocol.txt for a description of the line protocol between
 libvmod-policy and the policy daemon.
