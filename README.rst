@@ -25,14 +25,16 @@ process.
 The goal of this is to simplify the development of advanced decision
 policies for Varnish.
 
-A policy daemon will be supplied with:
-* all request headers
-* varnishd metainfo
-* (in 4.0: request body)
+A policy daemon will be supplied with::
 
-Example can be:
-* DNS blacklists for expensive POST requests.
+* Metainfo; client IP/port, URI, etc.
+* Request headers
+* Request body (in 4.0, empty in 3.0)
+
+Example usage can be::
+
 * Request rate limiting (number, size, etc)
+* DNS blacklists for expensive POST requests.
 * Client profiling/tracking
 
 See the vpol-protocol.txt for a description of the line protocol between
@@ -56,7 +58,7 @@ Description
 Example
         ::
 
-                if (policy.check("127.0.0.1:15696") == "NO") {
+                if (policy.check("127.0.0.1:15696") == 400) {
                     error 403 "Forbidden";
                 }
 
@@ -90,27 +92,12 @@ Make targets:
 * make install - installs your vmod in `VMODDIR`
 * make check - runs the unit tests in ``src/tests/*.vtc``
 
-In your VCL you could then use this vmod along the following lines::
-        
-        import example;
 
-        sub vcl_deliver {
-                # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = example.hello("World");
-        }
-
-HISTORY
-=======
-
-This manual page was released as part of the libvmod-example package,
-demonstrating how to create an out-of-tree Varnish vmod. For further
-examples and inspiration check the vmod directory:
- https://www.varnish-cache.org/vmods
 
 COPYRIGHT
 =========
 
 This document is licensed under the same license as the
-libvmod-example project. See LICENSE for details.
+libvmod-policy project. See LICENSE for details.
 
 * Copyright (c) 2013 Varnish Software
