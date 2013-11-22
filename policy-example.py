@@ -28,7 +28,7 @@ class policyTCPHandler(SocketServer.StreamRequestHandler):
 
         for i in range(4, len(header), 4):
             print "index %i: %s" % (i, " ".join(
-                [ "%s(%s)" % (x, hex(ord(x))) for x in header[i:i+4]]))
+                [ "%s" % hex(ord(x)) for x in header[i:i+4]]))
         try:
             lengths = struct.unpack("!III", header[4:4+3*4])
         except ValueError as e:
