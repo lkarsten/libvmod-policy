@@ -1,81 +1,80 @@
 #!/usr/bin/env python
-
+"""
+    Example Varnish policy vmod server.
+"""
 import socket
 import struct
 import SocketServer
+import logging
 from os.path import exists
 from os import unlink
 from pprint import pprint
+from time import sleep
 
-class ClientError(Exception):
-    pass
+from VPOLServer import BaseVPOLRequestHandler
 
-class policyHandler(SocketServer.StreamRequestHandler):
-    #timeout = 0.5
-    timeout = 2
-    def handle(self):
-        print "connection accepted"
-        section = 0
-        data = [[], [], []]
-        rfile = self.request.makefile()
-        print "reading header"
+class SORBScheck(BaseVPOLRequestHandler):
+    """
+        Check if the requesting client is listed in the combined SORBS 
+        blacklist.
 
-        header = rfile.read(4+3*4)
-        if len(header) < 10:
-            raise ClientError("chunked header not ok")
+        See http://www.sorbs.net/ for more information.
 
-        print "got header: (%i) \"%s\"" % (len(header), header)
-        if not header[0:4] == "VPOL":
-            raise ClientError("pre-header")
+        Only checks IPv4, will allow any IPv6 client.
+    """
 
-        for i in range(4, len(header), 4):
-            print "index %i: %s" % (i, " ".join(
-                [ "%s" % hex(ord(x)) for x in header[i:i+4]]))
+    def policy(self):
+        if "client_ip" not in self.meta:
+            raise ClientError("No client_ip found")
+
+        _ip = self.meta["client_ip"].split(".", 4)
+        if len(_ip) != 4:
+            self.request.send("200 DUNNO\n")
+            return
+
+        dnsname = "%s.%s.%s.%s.dnsbl.sorbs.net" % \
+            (_ip[3], _ip[2], _ip[1], _ip[0])
+
+        dnsres = None
         try:
-            lengths = struct.unpack("!III", header[4:4+3*4])
-        except ValueError as e:
-            raise ClientError("header" + str(e))
-        print lengths
-
-        for l in lengths:
-            if l > 1e5:
+            dnsres = socket.getaddrinfo(dnsname, None)
+        except Exception as e:
+            if e.errno == -2: # NXDOMAIN
+                self.request.send("200 OK\n")
                 return
+            else:
+                logging.debug(str(e))
 
-        try:
-            print "reading %i bytes of meta" % lengths[0]
-            meta = rfile.read(lengths[0])
-            # print "meta is: \"%s\"" % meta
+        if dnsres:
+            self.request.send("403 Forbidden\n")
+        else:
+            # unhandled response, fail gracefully.
+            self.request.send("200 DUNNO\n")
 
-            print "reading %i bytes of headers" % lengths[1]
-            headers = rfile.read(lengths[1])
-            # print "headers are: \"%s\"" % headers
 
-            print "reading %i bytes of body" % lengths[2]
-            body = rfile.read(lengths[2])
-            #print "body is: %i" % len(body)
-        except socket.error as e:
-            raise ClientError("read: " + str(e))
-
+class AllOKhandler(BaseVPOLRequestHandler):
+    verbose = True
+    def policy(self):
         if 1:
-            pprint(meta)
-            pprint(headers)
-            pprint(body)
-        # let the policy daemon vouch for the client for a while. ttl, ip.
-        #self.request.send("policy-whitelist-client: 3600,1.2.3.4\n")
+            pprint(self.meta)
+            pprint(self.headers)
+            pprint(self.body)
+
         response = "200 OK"
         self.request.send(response + "\n")
         print "Sent: %s" % response
         print "Request handling finished,"
 
-
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     socketfile = "/tmp/foo.sock";
     if exists(socketfile):
         unlink(socketfile)
-    server = SocketServer.UnixStreamServer(socketfile, policyHandler)
+
+    #server = SocketServer.UnixStreamServer(socketfile, AllOKhandler)
+    server = SocketServer.UnixStreamServer(socketfile, SORBScheck)
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
-

@@ -9,7 +9,7 @@ varnish v1 -vcl+backend {
 	import policy from "${vmod_topbuild}/src/.libs/libvmod_policy.so";
 	import std;
 	sub vcl_deliver {
-		set resp.http.x-ok = policy.check("/tmp/foo.sock");
+		set resp.http.x-ok = policy.check("/tmp/foo.sock", 0.5);
 	}
 } -start
 

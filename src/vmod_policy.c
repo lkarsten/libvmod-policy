@@ -24,7 +24,7 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 
 
 int
-vmod_check(struct sess *sp, const char *socketfile) {
+vmod_check(struct sess *sp, const char *socketfile, const double timeout) {
 	char *p, *q;
 	int u, v;
 	char hdrname[1000];
@@ -33,11 +33,12 @@ vmod_check(struct sess *sp, const char *socketfile) {
 	struct sockaddr_un serveraddr;
 #define SERVERADDR_MAX 254
 	ssize_t len;
-	char vpolhdr[] = "VPOL";
+	char vpolhdr[] = "VPOL01";
 	char response[] = "000\0";
 	short responsecode;
 
 	AN(socketfile);
+	AN(timeout);
 
 	memset(&serveraddr, 0, sizeof(struct sockaddr_un));
 	serveraddr.sun_family = AF_UNIX;
@@ -48,7 +49,6 @@ vmod_check(struct sess *sp, const char *socketfile) {
 		VSL(SLT_VCL_Log, 0, "socket(): %i %s", sock, strerror(sock));
 		return EXIT_ERR;
 	}
-
 	s = connect(sock, (struct sockaddr *)&serveraddr, sizeof(struct sockaddr_un));
 	if (s != 0) {
 		VSL(SLT_VCL_Log, 0, "connect(): (%i) %s", errno, strerror(errno));
@@ -93,6 +93,7 @@ vmod_check(struct sess *sp, const char *socketfile) {
 
 	// read and parse the response.
 	s = recv(sock, &response, sizeof(response), 0);
+
 	if (s == -1) {
 		VSL(SLT_VCL_Log, 0, "recv(): %s", strerror(s));
 		close(sock);
