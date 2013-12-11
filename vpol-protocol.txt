@@ -8,7 +8,7 @@ If the server does not respond, it must be safe to retry the request.
 
 The first 16 bytes of a request must be a VPOL header, consisting of:
 
-	char[4] "VPOL"
+	char[6] "VPOL01"
 	uint32 meta_length
 	uint32 header_length
 	uint64 body_length
@@ -31,7 +31,6 @@ List of key: values. \n delimited.
 
 3) Body
 This is the request body, if this request type permits it. (POST/PUT)
-
 Not available in 3.0.
 
 
@@ -47,4 +46,6 @@ To be expanded upon. Missing points/functionality can be::
 
 * whitelist/blacklist this client for n seconds.
 * set/alter http headers (should perhaps be done in VCL)
+
+
 
