@@ -39,6 +39,12 @@ vmod_check(const struct vrt_ctx *ctx, VCL_STRING socketfile, VCL_REAL timeout) {
 	AN(socketfile);
 	AN(timeout);
 
+	// Access to body only available in recv.
+	if (ctx->req->req_step != R_STP_RECV) {
+		VSL(SLT_VCL_Log, 0, "check() is only valid in vcl_recv");
+		return EXIT_ERR;
+	}
+
 	memset(&serveraddr, 0, sizeof(struct sockaddr_un));
 	serveraddr.sun_family = AF_UNIX;
 	strncpy(serveraddr.sun_path, socketfile, strlen(socketfile));
@@ -83,12 +89,23 @@ vmod_check(const struct vrt_ctx *ctx, VCL_STRING socketfile, VCL_REAL timeout) {
 	len = htonl(VSB_len(headers));
 	send(sock, &len, sizeof(uint32_t), 0);
 
-	len = 0; // no body
+	if (VRT_CacheReqBody(ctx, 16384) < 0) {
+		VSL(SLT_VCL_Log, 0, "Unable to cache request body");
+		return EXIT_ERR;
+	}
+
+	if (ctx->req->req_bodybytes > sizeof(uint32_t)) {
+		VSL(SLT_VCL_Log, 0, "Request body is too large");
+		return EXIT_ERR;
+	}
+	// req_bodybytes is uint64_t, we only support 32bits. (Hmm.)
+	len = ctx->req->req_bodybytes & 0xFFFFFFFF;
 	send(sock, &len, sizeof(uint32_t), 0);
 
 	// send the content.
 	send(sock, VSB_data(meta), VSB_len(meta), 0);
 	send(sock, VSB_data(headers), VSB_len(headers), 0);
+
 
 	// read and parse the response.
 	s = recv(sock, &response, sizeof(response), 0);
