@@ -1,0 +1,3 @@
+Module policy
+Init init_function
+Function INT check(STRING, REAL)

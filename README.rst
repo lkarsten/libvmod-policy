@@ -1,47 +1,68 @@
 ============
-vmod_example
+vmod_policy
 ============
 
 ----------------------
-Varnish Example Module
+Varnish policy daemons
 ----------------------
 
-:Author: Martin Blix Grydeland
-:Date: 2011-05-26
+:Author: Lasse Karstensen
+:Date: 2013-11-18
 :Version: 1.0
 :Manual section: 3
 
 SYNOPSIS
 ========
 
-import example;
+import policy;
 
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod
-for Varnish 3.0 and later.
+The policy vmod allows request policy handling to be done in a separate
+process.
 
-Implements the traditional Hello World as a vmod.
+The goal of this is to simplify the development of advanced decision
+policies for Varnish.
+
+A policy daemon will be supplied with:
+
+* Metainfo; client IP/port, URI, etc.
+* Request headers
+* Request body (in 4.0, empty in 3.0)
+
+
+Example usage can be:
+
+* Request rate limiting (number, size, etc)
+* DNS blacklists for expensive POST requests.
+* Client profiling/tracking
+
+
+See the vpol-protocol.txt for a description of the line protocol between
+libvmod-policy and the policy daemon.
+
 
 FUNCTIONS
 =========
 
-hello
+check
 -----
 
 Prototype
         ::
 
-                hello(STRING S)
+                check(STRING S)
 Return value
 	STRING
 Description
-	Returns "Hello, " prepended to S
+	Checks with policy server in S, and returns the string provided by it.
 Example
         ::
 
-                set resp.http.hello = example.hello("World");
+                if (policy.check("127.0.0.1:15696") == 400) {
+                    error 403 "Forbidden";
+                }
 
 INSTALLATION
 ============
@@ -73,27 +94,12 @@ Make targets:
 * make install - installs your vmod in `VMODDIR`
 * make check - runs the unit tests in ``src/tests/*.vtc``
 
-In your VCL you could then use this vmod along the following lines::
-        
-        import example;
 
-        sub vcl_deliver {
-                # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = example.hello("World");
-        }
-
-HISTORY
-=======
-
-This manual page was released as part of the libvmod-example package,
-demonstrating how to create an out-of-tree Varnish vmod. For further
-examples and inspiration check the vmod directory:
- https://www.varnish-cache.org/vmods
 
 COPYRIGHT
 =========
 
 This document is licensed under the same license as the
-libvmod-example project. See LICENSE for details.
+libvmod-policy project. See LICENSE for details.
 
-* Copyright (c) 2011 Varnish Software
+* Copyright (c) 2013 Varnish Software

@@ -1,28 +1,28 @@
-AM_CPPFLAGS = @VMOD_INCLUDES@
+AM_CPPFLAGS = -I$(VARNISHSRC)/include -I$(VARNISHSRC)
 
-vmoddir = @VMOD_DIR@
-vmod_LTLIBRARIES = libvmod_example.la
+vmoddir = $(VMODDIR)
+vmod_LTLIBRARIES = libvmod_policy.la
 
-libvmod_example_la_LDFLAGS = -module -export-dynamic -avoid-version -shared
+libvmod_policy_la_LDFLAGS = -module -export-dynamic -avoid-version -shared
 
-libvmod_example_la_SOURCES = \
+libvmod_policy_la_SOURCES = \
 	vcc_if.c \
 	vcc_if.h \
-	vmod_example.c
+	vmod_policy.c
 
-vcc_if.c vcc_if.h: @VMODTOOL@ $(top_srcdir)/src/vmod_example.vcc
-	@VMODTOOL@ $(top_srcdir)/src/vmod_example.vcc
+vcc_if.c vcc_if.h: $(VARNISHSRC)/lib/libvmod_std/vmod.py $(top_srcdir)/src/vmod_policy.vcc
+	@PYTHON@ $(VARNISHSRC)/lib/libvmod_std/vmod.py $(top_srcdir)/src/vmod_policy.vcc
 
 VMOD_TESTS = tests/*.vtc
 .PHONY: $(VMOD_TESTS)
 
 tests/*.vtc:
-	@VARNISHTEST@ -Dvarnishd=@VARNISHD@ -Dvmod_topbuild=$(abs_top_builddir) $@
+	$(VARNISHSRC)/bin/varnishtest/varnishtest -Dvarnishd=$(VARNISHSRC)/bin/varnishd/varnishd -Dvmod_topbuild=$(abs_top_builddir) $@
 
 check: $(VMOD_TESTS)
 
 EXTRA_DIST = \
-	vmod_example.vcc \
+	vmod_policy.vcc \
 	$(VMOD_TESTS)
 
 CLEANFILES = $(builddir)/vcc_if.c $(builddir)/vcc_if.h
