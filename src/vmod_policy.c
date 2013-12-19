@@ -7,7 +7,7 @@
 
 #include "vrt.h"
 #include "vsb.h"
-#include "bin/varnishd/cache.h"
+#include "cache/cache.h"
 
 #include "vcc_if.h"
 
@@ -22,9 +22,8 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 	return (0);
 }
 
-
-int
-vmod_check(struct sess *sp, const char *socketfile, const double timeout) {
+VCL_INT
+vmod_check(const struct vrt_ctx *ctx, VCL_STRING socketfile, VCL_REAL timeout) {
 	char *p, *q;
 	int u, v;
 	char hdrname[1000];
@@ -57,18 +56,18 @@ vmod_check(struct sess *sp, const char *socketfile, const double timeout) {
 	AN(sock);
 
 	meta = VSB_new_auto();
-	VSB_printf(meta, "xid: %i\n", sp->xid);
-	VSB_printf(meta, "vcl_method: %i\n", sp->cur_method);
-	VSB_printf(meta, "client_ip: %s\n", sp->addr);
-	VSB_printf(meta, "t_open: %i\n", sp->t_open);
-	VSB_printf(meta, "http_method: %s\n", sp->http->hd[0].b);
-	VSB_printf(meta, "URL: %s\n", sp->http->hd[1].b);
-	VSB_printf(meta, "proto: %s\n", sp->http->hd[2].b);
+	VSB_printf(meta, "xid: %i\n", ctx->req->sp->vxid);
+	VSB_printf(meta, "vcl_method: %i\n", ctx->req->wrk->cur_method);
+	VSB_printf(meta, "client_identity: %s\n", ctx->req->client_identity);
+	VSB_printf(meta, "t_open: %i\n", ctx->req->sp->t_open);
+	VSB_printf(meta, "http_method: %s\n", ctx->req->http->hd[0].b);
+	VSB_printf(meta, "URL: %s\n", ctx->req->http->hd[1].b);
+	VSB_printf(meta, "proto: %s\n", ctx->req->http->hd[2].b);
 	VSB_finish(meta);
 
 	headers = VSB_new_auto();
-	for (u = HTTP_HDR_FIRST; u < sp->http->nhd; u++) {
-		VSB_bcat(headers, sp->http->hd[u].b, Tlen(sp->http->hd[u]));
+	for (u = HTTP_HDR_FIRST; u < ctx->req->http->nhd; u++) {
+		VSB_bcat(headers, ctx->req->http->hd[u].b, Tlen(ctx->req->http->hd[u]));
 		VSB_cat(headers, "\n");
 	}
 	VSB_finish(headers);
