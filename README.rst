@@ -52,25 +52,20 @@ check
 Prototype
         ::
 
-                check(STRING S)
+                check(STRING domainsocket, FLOAT timeout)
 Return value
 	STRING
 Description
-	Checks with policy server in S, and returns the string provided by it.
+	Checks with policy server on S, giving it timeout seconds to reply. Returns the string provided by it.
 Example
         ::
 
-                if (policy.check("127.0.0.1:15696") == 400) {
+                if (policy.check("/var/tmp/policy1.sock", 0.5) == 400) {
                     error 403 "Forbidden";
                 }
 
 INSTALLATION
 ============
-
-This is an example skeleton for developing out-of-tree Varnish
-vmods available from the 3.0 release. It implements the "Hello, World!" 
-as a vmod callback. Not particularly useful in good hello world 
-tradition,but demonstrates how to get the glue around a vmod working.
 
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
