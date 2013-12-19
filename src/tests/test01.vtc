@@ -8,15 +8,19 @@ server s1 {
 varnish v1 -vcl+backend {
 	import policy from "${vmod_topbuild}/src/.libs/libvmod_policy.so";
 	import std;
+	sub vcl_recv {
+		set req.http.x-ok = policy.check("/tmp/foo.sock", 0.5);
+	}
 	sub vcl_deliver {
-		set resp.http.x-ok = policy.check("/tmp/foo.sock", 0.5);
+		set resp.http.x-ok = req.http.x-ok;
 	}
 } -start
 
 client c1 {
-	txreq -url "/" -hdr "User-Agent: varnishtest" \
+	txreq -url "/" -req "POST" -hdr "User-Agent: varnishtest" \
 		-hdr "Accept-Language: en" \
-		-hdr "Host: localhost"
+		-hdr "Host: localhost" \
+		-body "foobody"
 	rxresp
 	expect resp.http.x-ok == "0"
 }

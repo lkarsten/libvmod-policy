@@ -34,18 +34,18 @@ class BaseVPOLRequestHandler(SocketServer.StreamRequestHandler):
         if not header[0:6] == "VPOL01":
             raise ClientError("pre-header")
 
-        #for i in range(6, len(header), 4):
-        #    logging.debug("index %i: %s" % (i, " ".join(
-        #            [ "%s" % hex(ord(x)) for x in header[i:i+4]])))
+        for i in range(6, len(header), 4):
+            logging.debug("index %i: %s" % (i, " ".join(
+                    [ "%s" % hex(ord(x)) for x in header[i:i+4]])))
 
         try:
             lengths = struct.unpack("!III", header[6:6+3*4])
         except ValueError as e:
             raise ClientError("header" + str(e))
 
-        for l in lengths:
+        for i, l in enumerate(lengths):
             if l > 1e5:
-                raise ClientError("Field too large")
+                raise ClientError("Field %i too large" % i)
         try:
             logging.debug("reading %i bytes of meta" % lengths[0])
             self.meta = rfile.read(lengths[0])

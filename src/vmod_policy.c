@@ -30,6 +30,7 @@ vmod_check(const struct vrt_ctx *ctx, VCL_STRING socketfile, VCL_REAL timeout) {
 	int i, hdrnamelen, sock, s;
 	struct vsb *meta, *headers;
 	struct sockaddr_un serveraddr;
+	struct storage *st;
 #define SERVERADDR_MAX 254
 	ssize_t len;
 	char vpolhdr[] = "VPOL01";
@@ -94,18 +95,23 @@ vmod_check(const struct vrt_ctx *ctx, VCL_STRING socketfile, VCL_REAL timeout) {
 		return EXIT_ERR;
 	}
 
-	if (ctx->req->req_bodybytes > sizeof(uint32_t)) {
-		VSL(SLT_VCL_Log, 0, "Request body is too large");
+	if (ctx->req->req_bodybytes >= UINT32_MAX) {
+		VSL(SLT_VCL_Log, 0, "Request body is too large: %u",
+				ctx->req->req_bodybytes);
 		return EXIT_ERR;
 	}
+
 	// req_bodybytes is uint64_t, we only support 32bits. (Hmm.)
-	len = ctx->req->req_bodybytes & 0xFFFFFFFF;
+	len = htonl(ctx->req->req_bodybytes & 0xFFFFFFFF);
 	send(sock, &len, sizeof(uint32_t), 0);
 
 	// send the content.
 	send(sock, VSB_data(meta), VSB_len(meta), 0);
 	send(sock, VSB_data(headers), VSB_len(headers), 0);
 
+	VTAILQ_FOREACH(st, &ctx->req->body, list) {
+		send(sock, st->ptr, st->len, 0);
+	}
 
 	// read and parse the response.
 	s = recv(sock, &response, sizeof(response), 0);
