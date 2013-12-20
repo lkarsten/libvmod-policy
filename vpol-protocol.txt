@@ -1,0 +1,95 @@
+VPOL protocol
+=============
+
+This is a request-response protocol.
+
+A client sends a request message, and receives a response message back.
+If the server does not respond, it must be safe to retry the request.
+
+The first 16 bytes of a request and response must be a VPOL header, consisting
+of:
+
+	char[6] "VPOL01"
+	uint16 rcode
+	uintXX vxid (called xid in 3.0)
+	uint32 meta_length
+	uint32 header_length
+	uint64 body_length
+
+This header is followed by the respective number of meta, header and body
+octets. There is no end marker.
+
+The policy daemon may shut down the connection after handling a request.
+
+Request message
+---------------
+
+A request message is sent from Varnish to a policy daemon.
+
+rcode should always be set to numeric 0.
+vxid is the request ID as defined by Varnish.
+
+A request message body has three parts:
+1) Metadata
+List of hardcoded keys, with their respective values. \n delimited.
+
+2) Request headers
+The HTTP request headers as key/values, delimited with \n.
+
+3) Request body
+Request body contents if the request type permits it. (POST/PUT)
+Always be empty in 3.0.
+
+
+Response message
+----------------
+
+A response message is sent as a reply to a request message. The policy
+daemon produces this message. It should be sent immediately on the same
+socket as the request came in on.
+
+A response message uses the same VPOL header as a request.
+
+rcode describes the policy daemon resulting code.
+A successful response should return a 200-series rcode.
+Any errors should return a 500-series rcode.
+
+For libvmod-policy, the rcode will be the VCL_INT that the check() method
+returns.
+
+The vxid field should have the same value as the request vxid.
+
+1) Metadata section. Currently always 0 bytes long.
+
+2) Header section describing headers to add to req.http. \n delimited.
+This can be used as a generic channel to pass data back to VCL.
+Adding existing header names will yield undefined behaviour.
+
+
+3) Body
+If this section is set, the client request body will be replaced with the
+content here. Previous content will be discarded.
+
+Ignored in 3.0.
+
+
+Error handling
+''''''''''''''
+
+Protocol errors seen by the policy daemon should be answered with an empty
+VPOL message (meta, headers, body all 0) with a 400 response code.
+
+Internal errors in the policy daemon should be returned with an em empty
+VPOL message with a 500 response code.
+
+
+Unresolved issues
+-----------------
+
+Should the policy daemon be told about the time constraint, so it can run as
+many checks it can and still return a result before the timeout?
+
+What about gzip? very important if we do this in vcl_backend_response as well.
+
+* whitelist/blacklist this client for n seconds.
+ - this can now be done through adding a header and writing some VCL.
