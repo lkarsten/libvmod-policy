@@ -14,52 +14,59 @@ class ClientError(Exception):
 
 class BaseVPOLRequestHandler(SocketServer.StreamRequestHandler):
     timeout = 0.5
-    #timeout = 2
     def handle(self):
         logging.debug("connection accepted")
         if 0:
             print "sleeping .. "
             sleep(10000)
 
-        section = 0
-        data = [[], [], []]
-        rfile = self.request.makefile()
+        header_length = 32
+
+        self.rfile = self.request.makefile()
         logging.debug("reading header")
 
-        header = rfile.read(6+3*4)
-        if len(header) < 10:
+        header = self.rfile.read(header_length)
+        if len(header) < 14:
             raise ClientError("chunked/partial header not ok")
 
         logging.debug("got header: (%i) \"%s\"" % (len(header), header))
-        if not header[0:6] == "VPOL01":
+        if not header[0:4] == "VPOL":
             raise ClientError("pre-header")
 
-        for i in range(6, len(header), 4):
-            logging.debug("index %i: %s" % (i, " ".join(
-                    [ "%s" % hex(ord(x)) for x in header[i:i+4]])))
-
         try:
-            lengths = struct.unpack("!III", header[6:6+3*4])
+            protoversion, rcode, self.vxid, l_meta, l_headers, l_body = \
+               struct.unpack("!HHQIIQ", header[4:header_length])
         except ValueError as e:
             raise ClientError("header" + str(e))
 
-        for i, l in enumerate(lengths):
-            if l > 1e5:
-                raise ClientError("Field %i too large" % i)
+        if protoversion != 1:
+            raise ClientError("protocol version")
+
+        #for i in range(6, len(header), 4):
+        #    logging.debug("index %i: %s" % (i, " ".join(
+        #            [ "%s" % hex(ord(x)) for x in header[i:i+4]])))
+        if rcode != 0:
+            raise ClientError("Request rcode %s is not zero", rcode)
+        if self.vxid == 0:
+            raise ClientError("Invalid zero req vxid %s", self.vxid)
+
+        for i in [l_meta, l_headers, l_body]:
+            if i > 1e5:
+                raise ClientError("Field too large")
         try:
-            logging.debug("reading %i bytes of meta" % lengths[0])
-            self.meta = rfile.read(lengths[0])
+            #logging.debug("reading %i bytes of meta" % lengths[0])
+            self.meta = self.rfile.read(l_meta)
             # print "meta is: \"%s\"" % meta
 
-            logging.debug("reading %i bytes of headers" % lengths[1])
-            self.headers = rfile.read(lengths[1])
+            #logging.debug("reading %i bytes of headers" % lengths[1])
+            self.headers = self.rfile.read(l_headers)
             # print "headers are: \"%s\"" % headers
 
-            logging.debug("reading %i bytes of body" % lengths[2])
-            self.body = rfile.read(lengths[2])
+            #logging.debug("reading %i bytes of body" % lengths[2])
+            self.body = self.rfile.read(l_body)
             #print "body is: %i" % len(body)
         except socket.error as e:
-            raise ClientError("read: " + str(e))
+            raise ClientError("read: %s", str(e))
 
         _ = {}
         for line in self.meta.split("\n"):
@@ -80,6 +87,17 @@ class BaseVPOLRequestHandler(SocketServer.StreamRequestHandler):
         self.policy()
 
 
+    def respond(self, rcode, respmeta, respheaders, respbody):
+        if type(respmeta) == dict:
+            respmeta = "\n".join([ "%s: %s" % (x[0], x[1]) for x in respmeta.items()])
+
+        if type(respheaders) == dict:
+            respheader = "\n".join([ "%s: %s" % (x[0], x[1]) for x in respheader.items()])
+
+        header = struct.pack("!HHQIIQ", 1, \
+            rcode, self.vxid, len(respmeta), len(respheaders), len(respbody))
+        self.request.send(header)
+
     def policy(self):
         """
             Override this with your application logic.
@@ -95,9 +113,7 @@ class AllOKhandler(BaseVPOLRequestHandler):
             pprint(self.body)
         # let the policy daemon vouch for the client for a while. ttl, ip.
         #self.request.send("policy-whitelist-client: 3600,1.2.3.4\n")
-        response = "200 OK"
-        self.request.send(response + "\n")
-        print "Sent: %s" % response
+        self.respond(200, {}, {"foo: bar"}, "response body")
         print "Request handling finished,"
 
 if __name__ == "__main__":

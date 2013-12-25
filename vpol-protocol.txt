@@ -6,12 +6,12 @@ This is a request-response protocol.
 A client sends a request message, and receives a response message back.
 If the server does not respond, it must be safe to retry the request.
 
-The first 16 bytes of a request and response must be a VPOL header, consisting
-of:
+The first 28 bytes of a request and response must be a VPOL header:
 
-	char[6] "VPOL01"
+	char[4] "VPOL"
+	uint8  protocol version, always 1.
 	uint16 rcode
-	uintXX vxid (called xid in 3.0)
+	uint64 vxid (called xid in 3.0)
 	uint32 meta_length
 	uint32 header_length
 	uint64 body_length
@@ -19,7 +19,8 @@ of:
 This header is followed by the respective number of meta, header and body
 octets. There is no end marker.
 
-The policy daemon may shut down the connection after handling a request.
+The policy daemon should keep the connection open after handling a request,
+unless the meta header "close: yes" is set in the proceeding request.
 
 Request message
 ---------------
@@ -32,6 +33,11 @@ vxid is the request ID as defined by Varnish.
 A request message body has three parts:
 1) Metadata
 List of hardcoded keys, with their respective values. \n delimited.
+
+Key that should always be a part of a request message:
+* Request URL (path)
+* client_identity
+
 
 2) Request headers
 The HTTP request headers as key/values, delimited with \n.
@@ -57,14 +63,13 @@ Any errors should return a 500-series rcode.
 For libvmod-policy, the rcode will be the VCL_INT that the check() method
 returns.
 
-The vxid field should have the same value as the request vxid.
+The vxid field must be set to the same value as the request vxid.
 
 1) Metadata section. Currently always 0 bytes long.
 
 2) Header section describing headers to add to req.http. \n delimited.
 This can be used as a generic channel to pass data back to VCL.
 Adding existing header names will yield undefined behaviour.
-
 
 3) Body
 If this section is set, the client request body will be replaced with the

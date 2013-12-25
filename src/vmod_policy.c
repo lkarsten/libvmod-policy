@@ -63,7 +63,6 @@ vmod_check(const struct vrt_ctx *ctx, VCL_STRING socketfile, VCL_REAL timeout) {
 	AN(sock);
 
 	meta = VSB_new_auto();
-	VSB_printf(meta, "xid: %i\n", ctx->req->sp->vxid);
 	VSB_printf(meta, "vcl_method: %i\n", ctx->req->wrk->cur_method);
 	VSB_printf(meta, "client_identity: %s\n", ctx->req->client_identity);
 	VSB_printf(meta, "t_open: %i\n", ctx->req->sp->t_open);
@@ -79,9 +78,13 @@ vmod_check(const struct vrt_ctx *ctx, VCL_STRING socketfile, VCL_REAL timeout) {
 	}
 	VSB_finish(headers);
 
+	// XXX: Don't call send() more than necessary/once.
+
 	// VSL(SLT_Debug, 0, "headers: (%i) %s ", VSB_len(headers), VSB_data(headers));
 	// format and send the VPOL header.
 	send(sock, &vpolhdr, sizeof(vpolhdr)-1, 0);
+	send(sock, htonl(ctx->req->sp->vxid), sizeof(uint32_t), 0);
+	send(sock, htonl((long)0), sizeof(uint32_t), 0);
 
 	// VSL(SLT_VCL_Log, 0, "meta len is: %i", VSB_len(meta));
 	len = htonl(VSB_len(meta));

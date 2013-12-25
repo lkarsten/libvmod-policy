@@ -7,9 +7,9 @@ import socket
 from time import sleep, time
 
 # no empty ending lines.
-req = ["""xid: 12345
+req = ["""
 vcl_method: 1
-client_ip: 127.0.0.1
+client_identity: 127.0.0.1
 t_open: %s
 http_method: 1
 URL: /
@@ -36,15 +36,13 @@ if __name__ == "__main__":
 #    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, 2)
 #    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    headercontent = (len(req[0]), len(req[1]), len(req[2]))
+    xid = 12345
+    headercontent = (1, 0, xid, len(req[0]), len(req[1]), len(req[2]))
     # print headercontent
 
-    header = "VPOL01" + struct.pack("!III", *headercontent)
+    header = "VPOL" + struct.pack("!HHQIIQ", *headercontent)
     # print len(header)
-    sock.send(header)
-    sock.send(req[0])
-    sock.send(req[1])
-    sock.send(req[2])
+    sock.send(header + "".join(req))
 
     response = ''
     waited = 0.0
@@ -63,8 +61,8 @@ if __name__ == "__main__":
                 waited += 0.01
                 sleep(0.01)
             else:
-                #print "got %i bytes" % len(r)
-                #print r
+                print "got %i bytes" % len(r)
+                print r
                 response += r
                 if len(r) >= 3:
                     break
