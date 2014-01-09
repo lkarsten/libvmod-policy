@@ -22,6 +22,11 @@ octets. There is no end marker.
 The policy daemon should keep the connection open after handling a request,
 unless the meta header "close: yes" is set in the proceeding request.
 
+If the policy server needs to close the connection after a request,
+regardless of what the client requested, it should send a "close: yes"
+response meta entry to tell the client this.
+
+
 Request message
 ---------------
 
@@ -58,18 +63,20 @@ A response message uses the same VPOL header as a request.
 
 rcode describes the policy daemon resulting code.
 A successful response should return a 200-series rcode.
-Any errors should return a 500-series rcode.
+Any internal policy daemon errors should return a 500-series rcode.
 
 For libvmod-policy, the rcode will be the VCL_INT that the check() method
 returns.
 
 The vxid field must be set to the same value as the request vxid.
 
-1) Metadata section. Currently always 0 bytes long.
+1) Metadata section.
+\n delimited.
 
 2) Header section describing headers to add to req.http. \n delimited.
+Adding an existing header name yields undefined behaviour.
+
 This can be used as a generic channel to pass data back to VCL.
-Adding existing header names will yield undefined behaviour.
 
 3) Body
 If this section is set, the client request body will be replaced with the
@@ -84,7 +91,7 @@ Error handling
 Protocol errors seen by the policy daemon should be answered with an empty
 VPOL message (meta, headers, body all 0) with a 400 response code.
 
-Internal errors in the policy daemon should be returned with an em empty
+Internal errors in the policy daemon should be returned with an empty
 VPOL message with a 500 response code.
 
 
