@@ -71,8 +71,8 @@ if __name__ == "__main__":
     if exists(socketfile):
         unlink(socketfile)
 
-    #server = SocketServer.UnixStreamServer(socketfile, AllOKhandler)
-    server = SocketServer.UnixStreamServer(socketfile, SORBScheck)
+    server = SocketServer.UnixStreamServer(socketfile, AllOKhandler)
+    #server = SocketServer.UnixStreamServer(socketfile, SORBScheck)
 
     try:
         server.serve_forever()

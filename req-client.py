@@ -5,6 +5,9 @@
 import struct
 import socket
 from time import sleep, time
+from pprint import pprint
+
+from VPOLServer import parse_header
 
 # no empty ending lines.
 req = ["""
@@ -28,7 +31,11 @@ Cookie: __utma=253898641.2098534993.1348749499.1374491627.1374580772.70; __utmz=
 class ServerError(Exception):
     pass
 
-if __name__ == "__main__":
+
+def main_unix():
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect("/tmp/foo.sock")
 
@@ -39,16 +46,18 @@ if __name__ == "__main__":
     xid = 12345
     headercontent = (1, 0, xid, len(req[0]), len(req[1]), len(req[2]))
     # print headercontent
-
     header = "VPOL" + struct.pack("!HHQIIQ", *headercontent)
-    # print len(header)
+    print len(header)
     sock.send(header + "".join(req))
+    print "done sending, reading response"
 
     response = ''
     waited = 0.0
-    while True:
+
+    if 0:
+#    while True:
         try:
-            r = sock.recv(1500, socket.MSG_DONTWAIT)
+            r = sock.recv(32, socket.MSG_DONTWAIT)
         except Exception as e:
             if e.errno == 11: # not yet
                 waited += 0.01
@@ -62,11 +71,23 @@ if __name__ == "__main__":
                 sleep(0.01)
             else:
                 print "got %i bytes" % len(r)
-                print r
                 response += r
                 if len(r) >= 3:
                     break
         if waited >= 2:
             raise ServerError("timeout after %ss" % waited)
 
-    print "response: %s" % response.strip()
+    r = sock.recv(32)
+    header = parse_header(r, is_request=False)
+    meta = sock.recv(header["len_meta"])
+    addheaders = sock.recv(header["len_headers"])
+    newbody = sock.recv(header["len_body"])
+
+    pprint(meta)
+    pprint(addheaders)
+    pprint(newbody)
+
+    #print "response: %s" % response.strip()
+
+if __name__ == "__main__":
+    main_unix()

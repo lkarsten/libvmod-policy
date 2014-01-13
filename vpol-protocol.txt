@@ -9,7 +9,7 @@ If the server does not respond, it must be safe to retry the request.
 The first 28 bytes of a request and response must be a VPOL header:
 
 	char[4] "VPOL"
-	uint8  protocol version, always 1.
+	uint16 protocol version, always 1. (reserved spare bits)
 	uint16 rcode
 	uint64 vxid (called xid in 3.0)
 	uint32 meta_length
