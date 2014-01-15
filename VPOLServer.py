@@ -12,6 +12,10 @@ import logging
 class FormatError(Exception):
     pass
 
+class ClientError(Exception):
+    pass
+
+
 
 def parse_header(header, is_request=True):
     """
@@ -89,14 +93,14 @@ class BaseVPOLRequestHandler(SocketServer.StreamRequestHandler):
         print "got %i bytes" % len(headerdata)
 
         if len(headerdata) < 14:
-            raise ClientError("chunked/partial header not ok")
+            raise FormatError("chunked/partial header not ok")
 
         header = parse_header(headerdata)
 
 
         for i in ['len_meta', 'len_headers', 'len_body']:
             if header[i] > 1e5:
-                raise ClientError("Field %s is to big" % i)
+                raise FormatError("Field %s is to big" % i)
         try:
             #logging.debug("reading %i bytes of meta" % lengths[0])
             self.meta = self.rfile.read(header["len_meta"])
@@ -162,8 +166,13 @@ class BaseVPOLRequestHandler(SocketServer.StreamRequestHandler):
 class AllOKhandler(BaseVPOLRequestHandler):
     def policy(self):
         if 1:
+            print "meta: ",
             pprint(self.meta)
-            pprint(self.headers)
+
+            print "headers: ",
+            pprint(self.headers),
+
+            print "body: ",
             pprint(self.body)
         # let the policy daemon vouch for the client for a while. ttl, ip.
         #self.request.send("policy-whitelist-client: 3600,1.2.3.4\n")
