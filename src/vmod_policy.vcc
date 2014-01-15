@@ -1,3 +1,2 @@
-Module policy
-Init init_function
-Function INT check(STRING, REAL)
+$Module policy Varnish policy daemon client.
+$Function INT check(STRING, REAL)
