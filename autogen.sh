@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export CC=clang
+
 warn() {
 	echo "WARNING: $@" 1>&2
 }
